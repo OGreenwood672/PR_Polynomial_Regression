@@ -7,7 +7,6 @@ directory = './lr_data'
 for filename in sorted(os.listdir(directory)):
     if filename.endswith('.csv'):
         file_path = os.path.join(directory, filename)
-        file_path = "./results/-6939339446156862666"
         
         df = pd.read_csv(file_path)
         
@@ -27,6 +26,3 @@ for filename in sorted(os.listdir(directory)):
         # Show the plot
         plt.show()
         
-        # Pause the execution until the user closes the plot
-        input("Press Enter to continue to the next file...")
-        break
