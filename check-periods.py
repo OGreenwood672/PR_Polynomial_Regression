@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 directory = './lr_data'
 
 for filename in sorted(os.listdir(directory)):
-    filename = "-1729228464322526488-period-0.csv"
     if filename.endswith('.csv'):
         file_path = os.path.join(directory, filename)
         
@@ -31,5 +30,5 @@ for filename in sorted(os.listdir(directory)):
 """
 -1206614467121466218
 -1729228464322526488
-
+-3265401304594168933
 """
