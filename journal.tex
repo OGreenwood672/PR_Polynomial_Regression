@@ -1,0 +1,210 @@
+\documentclass[12pt,a4paper]{article}
+
+% Package imports for standard functionality
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{authblk}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{array}
+
+% Geometry settings
+\geometry{a4paper, margin=1in}
+
+% Title and author details
+\title{Using Polynomial Regression to Calculate Ideal Lift Kinematics}
+
+\author{Oliver Greenwood}
+\affil{Peters' Research, Great Missenden UK}
+
+\date{5th of September 2024}
+
+% Document begins here
+\begin{document}
+
+\maketitle
+
+% Abstract section
+\begin{abstract}
+   This study investigates the use of polynomial regression to calculate dynamic ideal lift kinematics using accelerometer data. The process involves analysing raw accelerometer readings to calculate jerk, velocity, and height, while identifying their maximum values. Further analysis is conducted to determine distinct acceleration stages: stationary, accelerating, constant velocity, and decelerating phases of the lift's motion. The data is then segmented into periods, which are used to train a polynomial regression model. 
+\end{abstract}
+
+% Keywords section
+\noindent\textbf{Keywords:} kinematics, lift, elevator, dynamic profile, ideal lift kinematics, twin lift system, 2 cars per shaft, multi-dimensional lift system, simulation, machine learning, polynomial regression
+
+% Section: Introduction
+\section{Introduction}
+
+Lift kinematics plays a crucial role in the elevator industry, focusing on the movement of a lift car within a shaft without considering mass or force. By measuring accelerometer data from a lift, we can assess the smoothness of its motion and improve passenger comfort based on this analysis. Additionally, this data can help detect potential issues in the lift system before they affect the user experience. This paper presents a method for generating ideal equations for use in both lift simulations and real-world lift systems as an alternative to the equations found in \cite{GenerationApplicationDynamicLiftKinematics}.
+
+% Subsection: Definitions
+\subsection{Definitions}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{0.2\textwidth}|p{0.7\textwidth}|}
+\hline
+\textbf{Term} & \textbf{Definition} \\ \hline
+\textbf{Lift Kinematics} & The study of the motion of a lift car in a shaft, without considering mass or force. \\ \hline
+\textbf{Jerk} & The rate of change of acceleration with respect to time. It is the derivative of acceleration and measures how smoothly a lift starts or stops. \\ \hline
+\textbf{Acceleration} & The rate at which the velocity of the lift changes with time. \\ \hline
+\textbf{Velocity} & The speed of the lift in a given direction. It is the derivative of displacement with respect to time. \\ \hline
+\textbf{Height} & The vertical displacement of the lift car from a reference point, typically the floor of the shaft. \\ \hline
+\textbf{Polynomial Regression}& A form of regression analysis in which the relationship between the independent variable and the dependent variable is modeled as an nth degree polynomial. \\ \hline
+\textbf{Period} & A segment of height, velocity, acceleration, or jerk data where the acceleration is not zero. \\ \hline
+\textbf{Single Journey} & A journey where the lift goes from one floor to another. \\ \hline
+ \textbf{j}&The maximum jerk in a period\\\hline
+ \textbf{a}&The maximum acceleration in a period\\\hline
+ \textbf{v}&The maximum velocity in a period\\\hline
+ \textbf{d}&The final displacement in a period\\\hline
+\end{tabular}
+\caption{Definitions of Key Terms in Lift Kinematics}
+\end{table}
+
+% Section: Methodology
+\section{Methodology}
+
+\subsection{Data Collection}
+The machine learning method requires a large dataset for training and evaluating the model. For this model, 104 motion files (.mtn) were collected, each containing raw accelerometer data and timestamps from single journeys. Each file contained approximately 25 seconds of data, and with 60 data points per second, about 156,000 unfiltered data points were available for model training.
+
+\subsection{Processing}
+As the data from the motion files is raw accelerometer data, it must be processed. 
+
+\subsubsection{Acceleration}
+Pythagoras’ theorem is applied to the x, y, and z components of the acceleration to calculate the magnitude, and it is multiplied by the sign of the z-component to allow for different orientations of the accelerometer. A basic drift correction is applied by subtracting the mean from each value.
+
+\subsubsection{Velocities}
+The acceleration magnitude is integrated to compute the velocity, which is then corrected using the following algorithm:
+
+\lstinputlisting[language=Python,caption=Measured Velocity Correction Algorithm]{vel_correction.py}
+
+\subsubsection{Height and Jerk}
+The velocity is integrated to compute the height, and the acceleration is differentiated to compute the jerk.
+\subsubsection{Acceleration}
+Pythagoras is applied to the acceleration's x, y, and z value to produce the acceleration magnitudes and multiplied by the sign of acceleration z value ($M_{\text{acc}}$) to allow for the accelerometer to be positioned in a variety of different orientations. Basic drift correction is then applied by taking the mean of all of the new acceleration values and subtracting it from each value. 
+
+Stages
+(Andrew's Paper)
+
+% Table: Stages
+\begin{table}[H]
+\centering
+\begin{tabular}{|p{0.2\linewidth}|p{0.45\linewidth}|} 
+\hline
+ \textbf{Stage} & \textbf{Description} \\ \hline
+ \textbf{0} & Lift is stationary \\ \hline
+ \textbf{1} & Lift is accelerating \\ \hline
+ \textbf{2} & Lift is at constant velocity \\ \hline
+ \textbf{3} & Lift is decelerating \\ \hline
+\end{tabular}
+\caption{Stages of Lift Motion}
+\end{table}
+
+These stages are calculated
+
+\subsubsection{Velocities}
+$M_{\text{acc}}$  is integrated to calculate $M_{\text{vel}}$ .  $M_{\text{vel}}$ is then corrected using this algorithm: (Thanks to Andrew)
+
+\lstinputlisting[language=Python,caption=Measured Velocity Correction Algorithm]{vel_correction.py}
+
+$df[col]$ represents my $M_{\text{vel}}$ values
+The effect variable can be found through trial and error. For this model, $0.0005$ was used.
+
+\subsection{Height and Jerk}
+Finally, $M_{\text{vel}}$ is integrated to get $M_{\text{height}}$ and $M_{\text{acc}}$ is differentiated to get $M_{\text{jerk}}$.
+
+\subsection{Splitting the Data}
+The periods are extracted from this data with a buffer zone. This buffer zone is to help the linear regression. For each period, $j$, $a$, $v$, and $d$ is calculated and saved. The periods are then translated and transformed so they all start at time 0 at value 0. 
+
+\subsection{Building the Polynomial Regression Model}
+The model was developed using Scikit-Learn, a Python library for machine learning. Initially, the data was divided into training and testing datasets, with 90\% allocated for training and 10\% reserved for testing.
+
+The model was constructed using the following pipeline:
+
+\lstinputlisting[language=Python,caption=Defining the Model]{define_model.py}
+
+Here, the \verb|include_bias| flag is set to \verb|False| to indicate that a y-intercept of zero is required. Ridge regression, also known as L2 regularization, is employed to mitigate the risk of overfitting by reducing model complexity and controlling large coefficients. For further details, see the Ridge Regression documentation provided by IBM \cite{ibm_ridge_regression}.
+
+The degree of the polynomial features was initially estimated, but it was optimized through iterative testing with various degrees to determine the most effective configuration.
+
+Training features were prepared by constructing a pandas DataFrame. This DataFrame included a column of timestamps and four additional columns representing jerk ($j$), acceleration ($a$), velocity ($v$), and displacement ($d$), depending on the specific period each timestamp represented. Optionally
+
+Cross-validation was performed with 5 splits to evaluate model performance. The root mean square error (RMSE) score was calculated to assess the model's accuracy. Following training, the model was tested, and the results were analyzed and presented.
+
+ 
+\subsection{Adjusting the Model}
+Currently, the model can run on any of $M_{\text{acc}}$, $M_{\text{vel}}$, $M_{\text{jerk}}$, and $M_{\text{height}}$.
+After running the model with trying to predict these values independently with different degrees, I found:
+ \begin{itemize}
+     \item Predicting $M_{\text{jerk}}$ is too noisy for the model to learn any meaningful information.
+     \item Predicting $M_{\text{acc}}$ can get up 92\% accuracy with a degree of 6.
+     \item Predicting $M_{\text{vel}}$ can get up to 99.6\% accuracy with a degree of 5.
+     \item Predicting $M_{\text{height}}$ could get up to 64\% accuracy
+ \end{itemize}
+Degrees any higher than this would lead to the model overfitting and producing terrible results.
+From this, decided I could predict the velocity periods then differentiate/integrate to find the other variables.
+
+\subsection{Using the Model}
+To use the model, the periods (with the same size buffer zone) bust be extracted, and the $j$, $a$, $v$, and $d$ for that period must be calculated. These values along with all the timestamps are inputted to the model and the predicted velocity is returned.
+
+\subsubsection{Calculating Ideal Acceleration}
+The velocities are differentiated to get the ideal accelerations, scale the ideal accelerations to match the $M_{\text{acc}}$ and then we cut off any accelerations that are in the wrong direction.
+
+\subsubsection{Calculating Ideal Jerk}
+The idea accelerations are differentiated, smoothed and then converted to instantaneous jerk by setting all the value to $j$ in the correct direction.
+
+\subsubsection{Calculating Ideal Velocity}
+For a more accurate ideal velocity, we integrate the ideal accelerations and scale the ideal velocities to match the $M_{\text{vel}}$
+
+\subsubsection{Calculating Ideal Heights}
+We finally integrate the ideal velocity and add a small linear correction.
+
+% Section: Results
+\section{Results}
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/acc.png}
+        \caption{Acceleration Comparison}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/velocity.png}
+        \caption{Velocity Comparison}
+    \end{subfigure}
+    \vfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/jerk.png}
+        \caption{Jerk Comparison}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/distance.png}
+        \caption{Distance Comparison}
+    \end{subfigure}
+    \caption{Results of measured data vs predicted data}
+\end{figure}
+
+
+% Section: Discussion
+\section{Discussion}
+The accuracy of the model can be further improved by splitting the periods into smaller sections for training. A more sophisticated approach could involve splitting the data where jerk is constant.
+
+% Section: Conclusion
+\section{Conclusion}
+This paper presents a novel approach to calculating ideal lift kinematics using polynomial regression.
+
+\appendix
+\section*{Appendices}
+
+\bibliographystyle{plain}
+\bibliography{rct.bib}
+
+\end{document}
