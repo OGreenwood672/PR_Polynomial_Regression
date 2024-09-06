@@ -146,7 +146,7 @@ After running the model with trying to predict these values independently with d
      \item Predicting $M_{\text{jerk}}$ is too noisy for the model to learn any meaningful information.
      \item Predicting $M_{\text{acc}}$ can get up 92\% accuracy with a degree of 6.
      \item Predicting $M_{\text{vel}}$ can get up to 99.6\% accuracy with a degree of 5.
-     \item Predicting $M_{\text{height}}$ could get up to 64\% accuracy
+     \item Predicting $M_{\text{height}}$ could get up to 64\% accuracy with a degree of 5
  \end{itemize}
 Degrees any higher than this would lead to the model overfitting and producing terrible results.
 From this, decided I could predict the velocity periods then differentiate/integrate to find the other variables.
@@ -166,7 +166,6 @@ For a more accurate ideal velocity, we integrate the ideal accelerations and sca
 \subsubsection{Calculating Ideal Heights}
 We finally integrate the ideal velocity and add a small linear correction.
 
-% Section: Results
 \section{Results}
 \begin{figure}[H]
     \centering
@@ -193,11 +192,11 @@ We finally integrate the ideal velocity and add a small linear correction.
 \end{figure}
 
 
-% Section: Discussion
-\section{Discussion}
-The accuracy of the model can be further improved by splitting the periods into smaller sections for training. A more sophisticated approach could involve splitting the data where jerk is constant.
 
-% Section: Conclusion
+\section{Discussion}
+The accuracy can further be increased by splitting the periods into smaller sections to train the data on. Currently, the periods are split into sections in which acceleration is changing, however the periods are split into sections where the jerk is constant, as explained in this paper: \cite{GenerationApplicationDynamicLiftKinematics}. It will then favour predicting accelerations instead of velocities providing a more reliable baseline to translate and transform our graphs, and also allow for acceleration and deceleration to be different values.
+
+
 \section{Conclusion}
 This paper presents a novel approach to calculating ideal lift kinematics using polynomial regression.
 
