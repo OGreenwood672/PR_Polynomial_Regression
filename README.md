@@ -1,6 +1,6 @@
 
 
-#How to use
+# How to use
 
 Step 1
 Place .mtn files into folder called raw-mtn
