@@ -1,0 +1,471 @@
+\documentclass[12pt,a4paper]{article}
+
+% Package imports for standard functionality
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{authblk}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{breqn}
+\usepackage[none]{hyphenat}
+
+\setcounter{secnumdepth}{4}
+
+\titleformat{\paragraph}
+{\normalfont\normalsize\bfseries}{\theparagraph}{1em}{}
+\titlespacing*{\paragraph}
+{0pt}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
+% Geometry settings
+\geometry{a4paper, margin=1in}
+
+% Title and author details
+\title{Using Multivariate Polynomial Linear Regression to Model Asymmetric Lift Kinematics}
+
+\author{Oliver Greenwood}
+\affil{Peters' Research\cite{peters_research}, Great Missenden UK}
+
+\date{11th of September 2024}
+
+% Document begins here
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Efficient modeling of lift kinematics is vital for improving elevator systems to enhancing passenger comfort and run accurate simulations. Current methods involve equations that produce an estimate for the ideal kinematics.
+This study aims to evaluate the effectiveness of polynomial regression models in predicting lift kinematics and compare different methods for training the model.
+Accelerometer data was collected from 104 lift journeys, encompassing approximately 156,000 data points. Using multivariate polynomial linear regression with varying degrees, we developed models to predict key kinematic parameters: acceleration, velocity, jerk, and displacement. Model performance was assessed using cross-validation and root mean square error (RMSE).
+Using our initial method, the models was able to predict value with high $R^2$ scores for velocity, acceleration, and displacement, all exceeding 90\%. The method also yielded good RMSE values, approximately 0.08 for both velocity and acceleration, and 1.8 for displacement. The model produced predicted asymmetric ideal kinematics with two different jerk values.
+The second method was specifically designed to optimise the model for predicting acceleration. With this refined approach, the predictions obtained had a significantly improved $R^2$ score of 99\% and an RMSE of 0.03, demonstrating enhanced model accuracy for acceleration predictions. This method also allowed for four different jerk values.
+Polynomial linear regression proves to be a robust tool for modeling complex lift kinematics. These findings have implications for more accurate lift simulations and improved passenger experience.
+ 
+\end{abstract}
+
+% Keywords section
+\noindent\textbf{Keywords:} kinematics, lift, elevator, asymmetric profile, lift kinematics, twin lift system, 2 cars per shaft, multi-dimensional lift system, simulation, machine learning, polynomial regression
+
+% Section: Introduction
+\section{INTRODUCTION}
+
+Lift kinematics plays a crucial role in the elevator industry, focusing on the movement of a lift car within a shaft without considering mass or force. By measuring accelerometer data from a lift, we can assess the smoothness of its motion and improve passenger comfort based on this analysis. Additionally, this data can help detect potential issues in the lift system before they affect the user experience. This paper presents a method for generating equations for use in both lift simulations and real-world lift systems.
+
+% Subsection: Definitions
+\subsection{Definitions}
+
+\begin{table}[H]
+\centering
+\caption{Definitions of Key Terms in Lift Kinematics}
+\begin{tabular}{|p{0.3\textwidth}|p{0.7\textwidth}|}
+\hline
+\textbf{Term} & \textbf{Definition} \\ \hline
+\textbf{Lift Kinematics} & The study of the motion of a lift car in a shaft, without considering mass or force. \\ \hline
+\textbf{Jerk} & The rate of change of acceleration with respect to time. It is the derivative of acceleration and measures how smoothly a lift starts or stops. \\ \hline
+\textbf{Acceleration} & The rate at which the velocity of the lift changes with time. \\ \hline
+\textbf{Velocity} & The speed of the lift in a given direction. It is the derivative of displacement with respect to time. \\ \hline
+\textbf{displacement} & The vertical displacement of the lift car from a reference point, typically the floor of the shaft. \\ \hline
+\textbf{Polynomial Regression}& A form of regression analysis in which the relationship between the independent variable and the dependent variable is modeled as an nth degree polynomial. \\ \hline
+\textbf{Phase} & A segment of displacement, velocity, acceleration, or jerk data where the acceleration is continuously not zero. \\ \hline
+\textbf{Period} & A segment of displacement, velocity, acceleration, or jerk data where the jerk is constant. \\ \hline
+\textbf{Single Journey} & A journey where the lift goes from one floor to another. \\ \hline
+\textbf{$R^2$} & A statistic of the model that shows how well the model can predict the variance of the data. \\ \hline
+\textbf{Root Mean Square Error (RMSE)} & A statistic of the model that shows the average difference between the prediction and the actual values.  \\ \hline
+\textbf{$M_{acc}$} & An array of data points representing acceleration values, where each acceleration value corresponds to a specific timestamp given in a respective timestamp array. \\ \hline
+\textbf{$M_{vel}$} & An array of data points representing velocity values, where each velocity value corresponds to a specific timestamp given in a respective timestamp array. \\ \hline
+\textbf{$M_{jerk}$} & An array of data points representing jerk values, where each jerk value corresponds to a specific timestamp given in a respective timestamp array. \\ \hline
+\textbf{$M_{displacement}$} & An array of data points representing displacement values, where each displacement value corresponds to a specific timestamp given in a respective timestamp array. \\ \hline
+ \textbf{j}&The maximum jerk in a given segment.\\\hline
+ \textbf{a}&The maximum acceleration in a given segment.\\\hline
+ \textbf{v}&The maximum velocity in a given segment.\\\hline
+ \textbf{d}&The final displacement in a given segment.\\\hline
+\end{tabular}
+\end{table}
+
+% Section: Methodology
+\section{METHODOLOGY}
+
+\subsection{Data Collection}
+The machine learning models requires a large dataset for training and evaluating the model. For this model, 104 motion files (.mtn) were collected, each containing raw accelerometer data and timestamps from single journeys in a csv format. These files also contain 3 values at the top representing stages of the door cycle on a lift, these can be ignored.
+Each file contained approximately 25 seconds of data, and with 60 data points per second, about 156,000 unfiltered data points were available for training the model.
+
+\subsection{Processing}
+As the data from the motion files is raw accelerometer data in its x, y and z components, it must be processed into a single smoothed set of data, which can then be used with the timestamps to calculate the corresponding velocity, jerk and displacement values.
+
+\subsubsection{Acceleration}
+Pythagoras’ theorem is applied to the x, y, and z components of the acceleration to calculate the magnitude, and it is multiplied by the sign of the z-component to allow for different orientations of the accelerometer. \\
+
+\begin{align}
+M_{\text{acc}} &= \sqrt{(\text{accelerometer}_x)^2 + (\text{accelerometer}_y)^2
++ (\text{accelerometer}_z)^2} \notag \\ &\quad \times \text{sign}(\text{accelerometer}_z)
+\end{align}
+\\
+Smoothing is now applied to $M_{acc}$. This will remove a considerable amount of the noise from the data. The following function is used:
+
+\vspace{2em}
+\begin{equation}
+    M_{\text{acc}_{i}} = \frac{M_{\text{acc}_i} + M_{\text{acc}_{i - 1}} \cdot \alpha}{1 + \alpha}
+\end{equation}
+\vspace{1em}
+
+The differentiating that is applied later will greatly exaggerate the noise from the data. This means a very small alpha value must be applied to reduce the noise considerably. A value of $0.025$ is used as it is sufficiently small but not so small that is renders the data unusable. \\
+
+Finally, accelerometer drift is corrected using this algorithm:
+\vspace{2em}
+\lstinputlisting[language=Python,caption=Accelerometer Drift Correction, xleftmargin=1cm]{drift_correction.py}
+\vspace{2em}
+
+\subsubsection{Assigning Stages}
+Stages are needed to be defined at each timestamp so that the behaviour the lift is exhibiting in any given instance of time is known. This will be useful in measurement corrections and splitting the data into phases and periods.
+
+% Table: Stages
+\begin{table}[H]
+\centering
+\caption{Stages of Lift Motion}
+\begin{tabular}{|p{0.2\linewidth}|p{0.45\linewidth}|} 
+\hline
+ \textbf{Stage} & \textbf{Description} \\ \hline
+ \textbf{0} & Lift is stationary \\ \hline
+ \textbf{1} & Lift is accelerating \\ \hline
+ \textbf{2} & Lift is at constant velocity \\ \hline
+ \textbf{3} & Lift is decelerating \\ \hline
+\end{tabular}
+\end{table}
+
+These stages are assigned using a similar algorithm to this dissertation \cite{andrew}:
+
+% \lstinputlisting[language=Python,caption=Assigning Stages]{add_stages.py}
+First, an upper and lower threshold for acceleration is defined. A lower bound of $0.1$ was used as it was as low as possible whilst still catching all the 0 acceleration values and accounting for the noise.
+A upper bound of $0.5$ was used as it was as high as possible whilst sill catching all the peak
+acceleration values.
+
+\vspace{2em}
+
+\begin{equation}
+    a^{UB} = a * UB
+\end{equation}
+\begin{equation}
+    a^{LB} = a * LB
+\end{equation}
+
+\vspace{2em}
+
+$M_{acc}$ was looped through and simultaneously $C$ was calculated (the number of consecutive instances we find above $a^{UB}$). If C ever satisfies:
+
+\vspace{0.5em}
+
+\begin{equation}
+    C >= C_{lim}
+\end{equation}
+
+\vspace{0.5em}
+
+Then the algorithm immediately backtracks and determines where $a^{LB}$ was crossed and set all points past that to stage one.
+A similar process to this is executed for converting stage one to stage two, stage two to stage three and stage three to stage zero.
+
+\subsubsection{Velocities}
+The $M_{acc}$ is integrated with respect to time to compute the $M_{vec}$. Corrections are applied on $M_{vel}$ using the stage values calculated previously. When at stage 0, the velocity is drawn to the value it should be in increments, similar to this dissertation \cite{andrew}.
+
+\vspace{2em}
+\lstinputlisting[language=Python,caption=Measured Velocity Correction Algorithm,xleftmargin=3.5cm]{vel_correction.py}
+\vspace{2em}
+
+The effect variable was found through trial and error. For this model, $0.0005$ was used. Higher values would result in velocity having sudden changes when changing to stage zero. Lower values would result in velocity not changing sufficiently.
+
+\subsubsection{displacement and Jerk}
+The velocity is integrated to compute the $M_{displacement}$ (displacement), and the acceleration is differentiated to compute the $M_{jerk}$ (jerk). No corrections are required for these values. 
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/macceleration.png}
+        \caption{$M_{acc}$ with corrections}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/mvelocity.png}
+        \caption{$M_{vel}$ with corrections}
+    \end{subfigure}
+    \vfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/mjerk.png}
+        \caption{$M_{jerk}$}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/mheight.png}
+        \caption{$M_{displacement}$}
+    \end{subfigure}
+    \caption{Graphical illustrations of measured values with corrections}
+\end{figure}
+
+\subsection{Method 1: Using Phases}
+
+
+\subsubsection{Splitting the Data}
+The phases are extracted from this data with a buffer zone. This buffer zone is to help the linear regression learn the start and end values of the phase. For each phase, $j$, $a$, $v$, and $d$ is calculated and saved. The phases are then translated and transformed so they all start at time 0 at value 0. 
+
+\subsubsection{Building the Polynomial Regression Model}
+The model was developed using Scikit-Learn, an open-source Python library for machine learning. Initially, the data was divided into training and testing datasets, with 90\% allocated for training and 10\% reserved for testing.
+
+The model was constructed using the following pipeline:
+
+\vspace{2em}
+\lstinputlisting[language=Python,caption=Defining the Model, xleftmargin=4cm]{define_model.py}
+\vspace{2em}
+
+Here, the \verb|include_bias| flag is set to \verb|False| to indicate that a y-intercept of zero is required. Ridge regression, also known as L2 regularization, is employed to mitigate the risk of overfitting by reducing model complexity and controlling large coefficients. For further details, see the Ridge Regression documentation provided by IBM \cite{ibm_ridge_regression}.
+
+The degree of the polynomial features was initially estimated, but it was optimised through iterative testing with various degrees to determine the most effective configuration.
+
+Training features were prepared by constructing a pandas DataFrame \cite{pandas}. This DataFrame included a column of timestamps and four additional columns representing jerk ($j$), acceleration ($a$), velocity ($v$), and displacement ($d$), depending on the specific phase each timestamp represented.
+
+Cross-validation was performed with 5 splits to evaluate model performance. The RMSE score was calculated to assess the model's accuracy. Following training, the model was tested, and the results were analysed and presented.
+
+ 
+\subsubsection{Adjusting the Model}
+Currently, the model can train to predict any of $M_{\text{acc}}$, $M_{\text{vel}}$, $M_{\text{jerk}}$, and $M_{\text{displacement}}$. The model was trained with degrees from 2 to 6 to find the optimal degree for each kinematics profile. Degrees any higher than this would lead to the model overfitting and producing unusable results. These were the results.
+\begin{table}[H]
+\centering
+\caption{Table Degree Key}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Degree} & \textbf{Colour} \\ \hline
+\( \textbf{2} \)  & Blue  \\ \hline
+\( \textbf{3} \)  & Green \\ \hline
+\( \textbf{4} \)   & Red  \\ \hline
+\( \textbf{5} \) & Yellow \\ \hline
+\( \textbf{6} \) & Purple \\ \hline
+\end{tabular}
+\label{tab:model_performance}
+\end{table}
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/acceleration-degrees.png}
+        \caption{Acceleration Data}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/velocity-degrees.png}
+        \caption{Velocity Data}
+    \end{subfigure}
+    \vfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/jerk-degrees.png}
+        \caption{Jerk Data}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/height-degrees.png}
+        \caption{displacement Data}
+    \end{subfigure}
+    \caption{Results of different degrees}
+\end{figure}
+From this data, a degree of 6  for the models training on displacement data, acceleration data and velocity data as it gave the highest accuracy with a high consistency. The model training on jerk data will no longer be used as the data is too noisy to produce any useful results.
+
+The model was run with these chosen degrees.
+\begin{table}[H]
+\centering
+\caption{Model Performance Metrics for Different Variables}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Variable} & \textbf{\(R^2\) Score} & \textbf{Mean RMSE Score} \\ \hline
+\( M_{\text{acc}} \)  & 0.913  & 0.094  \\ \hline
+\( M_{\text{vel}} \)   & 0.996  & 0.078  \\ \hline
+\( M_{\text{displacement}} \) & 0.935  & 1.742  \\ \hline
+\end{tabular}
+\label{tab:model_performance}
+\end{table}
+
+From this,  the velocity model was chosen to be the main model which could then differentiated/integrated to find the other variables.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figuras/test-output.png}
+    \caption{Velocity predicted and Velocity measured against time}
+    \label{fig:enter-label}
+\end{figure}
+
+\subsubsection{Using the Model}
+To use the model, the phases (with the same size buffer zone) must be extracted, and the $j$, $a$, $v$, and $d$ for that phase must be calculated. These values along with all the timestamps are inputted to the model and the predicted velocity is returned.
+
+\paragraph{Calculating Ideal Acceleration}
+The velocities are differentiated to get the ideal accelerations. The ideal accelerations are then scaled to match the $M_{\text{acc}}$ and then we cut off any accelerations that are in the wrong direction.
+
+\paragraph{Calculating Ideal Velocity}
+For a more accurate ideal velocity, the ideal accelerations are integrated then scaled to $v$ to match the $M_{\text{vel}}$
+
+\paragraph{Calculating Ideal displacements}
+To calculate the displacement, the ideal velocity is integrated and a small linear correction is added.
+
+\paragraph{Calculating Ideal Jerk}
+The ideal accelerations are differentiated to calculate the ideal jerk values. These values are then smoothed to reduce the noise.
+
+\subsection{Method 2: Using Periods}
+In this method, the focus is on optimising the model's acceleration profile predictions. The model is allowed to use different acceleration and deceleration values, this will allow the model to be used in scenarios such as in a two car shaft.
+
+\subsubsection{Splitting the Data}
+To split the data into periods, the data is split into phases like in method one but then further split them by finding when $0.9 * a$ is reached and then stopping just before the acceleration goes down again. (To find the other period, simply reverse the data and perform the same method). Small buffer zones are added to each of the periods to help the model learn to start and end on the correct values. Each period then has its $a$, $j$, $v$ and $d$ calculated.
+
+\subsubsection{Building the Polynomial Regression Model}
+The model was developed using Scikit-Learn \cite{scikit}, an open source Python \cite{python} library for machine learning. Initially, the data was divided into training and testing datasets, with 90\% allocated for training and 10\% reserved for testing.
+
+The model was constructed using the following pipeline:
+
+\vspace{2em}
+\lstinputlisting[language=Python,caption=Defining the Model, xleftmargin=4cm]{define_model.py}
+\vspace{2em}
+
+Here, the \verb|include_bias| flag is set to \verb|False| to indicate that a y-intercept of zero is required. Ridge regression, also known as L2 regularization, is employed to mitigate the risk of overfitting by reducing model complexity and controlling large coefficients. For further details, see the Ridge Regression documentation provided by IBM \cite{ibm_ridge_regression}.
+
+The degree of the polynomial features was initially estimated, but it was optimised through iterative testing with various degrees to determine the most effective configuration.
+
+Training features were prepared by constructing a pandas DataFrame\cite{pandas}. This DataFrame included a column of timestamps and four additional columns representing jerk ($j$), acceleration ($a$), velocity ($v$), and displacement ($d$), depending on the specific phase each timestamp represented.
+
+Cross-validation was performed with 5 splits to evaluate model performance. The RMSE score was calculated to assess the model's accuracy. Following training, the model was tested, and the results were analysed and presented.
+
+\subsubsection{Adjusting the Model}
+\begin{table}[H]
+\centering
+\caption{Table Degree Key}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Degree} & \textbf{Colour} \\ \hline
+\( \textbf{4} \)  & Blue  \\ \hline
+\( \textbf{5} \)  & Green \\ \hline
+\( \textbf{6} \)   & Red  \\ \hline
+\( \textbf{7} \) & Yellow \\ \hline
+\( \textbf{8} \) & Purple \\ \hline
+\end{tabular}
+\label{tab:model_performance}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figuras/acc-acc-degrees.png}
+    \caption{Acceleration predicted using models of different degrees.}
+    \label{fig:enter-label}
+\end{figure}
+
+From these results, it is determined that as the degree increases, the higher the chance of overfitting. For the rest of this method, a degree of 7 is used as it is consistently not overfitting and is able to produce an $R^2$ score of up to 0.992 and an RMSE score of as low as 0.032.
+
+Here are the test results from a model with degree 7.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.95\linewidth]{figuras/acc-test.png}
+    \caption{Acceleration predicted and Acceleration measured against time}
+    \label{fig:enter-label}
+\end{figure}
+
+\subsubsection{Using the model}
+To use the model, the periods (with the same size buffer zone) must be extracted, and
+the j, a, v, and d for that period must be calculated. These values along with all the
+timestamps are inputted to the model and the predicted acceleration is returned.
+
+\paragraph{Calculating Ideal Acceleration}
+First, each period is transformed so that is it in the correct orientation, then it is translated so that it starts at the correct y coordinate. Any values that are on the wrong side of $y=0$ are removed. Any missing timestamps are removed and then the periods are connected together. Finally the acceleration is smoothed so that there are no jagged jerk values later on.
+
+\paragraph{Calculating Ideal Velocity}
+To calculate velocity, the predicted acceleration values are integrated and scaled so the maximum predicted velocity matches $v$.
+
+\paragraph{Calculating Ideal displacements}
+The ideal velocity are integrated and a small linear correction is added.
+
+\paragraph{Calculating Ideal Jerk}
+The ideal accelerations are smoothed using an exponential weighted average, and then smoothed using equation (2). This prevents the ideal jerk values having too much noise. Finally, the ideal accelerations are differentiated to calculate the ideal jerk.
+
+\section{RESULTS}
+\subsection{Method One}
+Method one demonstrated strong performance in capturing the variance in acceleration, velocity, and displacement. It also achieved low RMSE values for both acceleration and velocity. However, it struggled to produce an accurate RMSE value for displacement. Here are the results from training a model to predict velocity and then integrated and differentiated to find the other kinematic profiles.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/acc.png}
+        \caption{Acceleration Comparison}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/velocity.png}
+        \caption{Velocity Comparison}
+    \end{subfigure}
+    \vfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/jerk.png}
+        \caption{Jerk Comparison}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/distance.png}
+        \caption{displacement Comparison}
+    \end{subfigure}
+    \caption{Results of measured data vs predicted data using method one}
+\end{figure}
+
+\subsection{Method Two}
+Method two was designed as an optimisation for primarily predicting accelerations. This method also allowed four different jerk values. The $R^2$ value was 99.2\% and the RMSE value was 0.03. Here are the results from training a model to predict accelerations and then using those acceleration values to calculate the other kinematic profiles.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/acc-acc.png}
+        \caption{Acceleration Comparison}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/acc-velocity.png}
+        \caption{Velocity Comparison}
+    \end{subfigure}
+    \vfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/acc-jerk.png}
+        \caption{Jerk Comparison}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth]{figuras/acc-height.png}
+        \caption{displacement Comparison}
+    \end{subfigure}
+    \caption{Results of measured data vs predicted data using method two}
+\end{figure}
+
+\section{DISCUSSION}
+Although both methods are accurate at at predicting the kinematic profiles, method two is much more accurate, offering half the RMSE. Method two also allows for a more advanced asymmetric kinematic profiles where four different jerk values can be provided unlike method two in which only two jerk values can be provided.
+
+\subsection{Further Improvements:}
+Currently, the only data being used is from the accelerometer. This means the model is only predicting what the accelerometer in sensing which for large displacements may be wrong. Adding another sensor and using a Kalman filter would provide results which are more accurate to the real world.
+
+This paper only attempts to model single journeys, however to allow the model to predict multiple journeys would not be too difficult, only changing corrections towards displacement and some other minor edits.
+
+Finally, to model dynamic kinematics, an edit to how the stages work would be required.
+
+\section{CONCLUSION}
+This paper shows that polynomial regression can effectively model lift kinematics, offering a valuable tool for improving simulation accuracy and passenger comfort. Whilst the results are promising, the study’s limitations highlight the need for further research with larger datasets. Overall, the findings contribute to the ongoing development of modeling techniques in the elevator industry .
+
+
+
+\bibliographystyle{plain}
+\bibliography{rct.bib}
+
+% \appendix
+% \section*{Appendix}
+
+% \lstset{
+%     breaklines=true, 
+%     breakatwhitespace=true
+%     postbreak=\mbox\{\textcolor\{red\}{\$\hookrightarrow\$}\textbackslash{}space\}
+% } 
+
+% \vspace{5em}
+
+
+\end{document}
